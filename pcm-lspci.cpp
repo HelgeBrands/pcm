@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2017, Intel Corporation
+Copyright (c) 2017-2018, Intel Corporation
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -33,9 +33,9 @@ using namespace std;
 
 void scanBus(int bus, const PCIDB & pciDB)
 {
-    if(!PciHandleType::exists(bus, 8, 2)) return;
+    if(!PciHandleType::exists(0, bus, 8, 2)) return;
 
-    std::cout << "BUS 0x" << std::hex << bus << std::dec << endl;
+    std::cout << "BUS 0x" << std::hex << bus << std::dec << "\n";
 
     struct iio_skx iio_skx;
 
@@ -103,7 +103,7 @@ void scanBus(int bus, const PCIDB & pciDB)
     }
 }
 
-int main(int argc, char * argv[])
+int main(int /*argc*/, char * /*argv*/[])
 {
     PCIDB pciDB;
     load_PCIDB(pciDB);

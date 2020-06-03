@@ -3,10 +3,10 @@
 all: libpcm.so
 
 OPT= -g -O3
-CXXFLAGS+= -Wall -fPIC $(OPT) -std=c++0x -DPCM_SILENT
+CXXFLAGS+= -Wall -fPIC $(OPT) -std=c++11 -DPCM_SILENT
 vpath %.cpp ..
 
-libpcm.so: msr.o cpucounters.o pci.o client_bw.o utils.o pcm-core.o
+libpcm.so: msr.o cpucounters.o pci.o mmio.o client_bw.o utils.o pcm-core.o
 	$(CXX) $(CXXFLAGS) -shared $^ -lpthread -o $@
 
 c_example.x: c_example.o

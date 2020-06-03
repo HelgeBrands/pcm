@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2009-2012, Intel Corporation
+Copyright (c) 2009-2018, Intel Corporation
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -88,14 +88,14 @@ public:
             uint64 event = 3; // L3 Local External Bandwidth
             uint64 msr_qm_evtsel = 0, value = 0;
             msr->read(IA32_QM_EVTSEL, &msr_qm_evtsel);
-            //std::cout << "MBLCounter reading IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << std::endl;
+            //std::cout << "MBLCounter reading IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << "\n";
             msr_qm_evtsel &= 0xfffffffffffffff0ULL;
             msr_qm_evtsel |= event & ((1ULL << 8) - 1ULL);
             //std::cout << "MBL event " << msr_qm_evtsel << "\n";
-            //std::cout << "MBLCounter writing IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << std::endl;
+            //std::cout << "MBLCounter writing IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << "\n";
             msr->write(IA32_QM_EVTSEL, msr_qm_evtsel);
             msr->read(IA32_QM_CTR, &value);
-            //std::cout << "MBLCounter reading IA32_QM_CTR "<< std::dec << value << std::dec << std::endl;
+            //std::cout << "MBLCounter reading IA32_QM_CTR "<< std::dec << value << std::dec << "\n";
             msr->unlock();
             return value;
         }
@@ -111,14 +111,14 @@ public:
             uint64 event = 2; // L3 Total External Bandwidth
             uint64 msr_qm_evtsel = 0, value = 0;
             msr->read(IA32_QM_EVTSEL, &msr_qm_evtsel);
-            //std::cout << "MBTCounter reading IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << std::endl;
+            //std::cout << "MBTCounter reading IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << "\n";
             msr_qm_evtsel &= 0xfffffffffffffff0ULL;
             msr_qm_evtsel |= event & ((1ULL << 8) - 1ULL);
             //std::cout << "MBR event " << msr_qm_evtsel << "\n";
-            //std::cout << "MBTCounter writing IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << std::endl;
+            //std::cout << "MBTCounter writing IA32_QM_EVTSEL 0x"<< std::hex << msr_qm_evtsel << std::dec << "\n";
             msr->write(IA32_QM_EVTSEL, msr_qm_evtsel);
             msr->read(IA32_QM_CTR, &value);
-            //std::cout << "MBTCounter reading IA32_QM_CTR "<< std::dec << value << std::dec << std::endl;
+            //std::cout << "MBTCounter reading IA32_QM_CTR "<< std::dec << value << std::dec << "\n";
             msr->unlock();
             return value;
         }
@@ -171,6 +171,12 @@ public:
     uint64 read() // read extended value
     {
         return internal_read();
+    }
+    void reset()
+    {
+        CounterMutex.lock();
+        extended_value = last_raw_value = (*raw_counter)();
+        CounterMutex.unlock();
     }
 };
 

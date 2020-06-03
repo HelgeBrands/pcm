@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2009-2017, Intel Corporation
+   Copyright (c) 2009-2018, Intel Corporation
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 static const char DEFAULT_SHM_ID_LOCATION[] = "/tmp/opcm-daemon-shm-id";
-static const char VERSION[] = "1.0.3";
+static const char VERSION[] = "1.0.5";
 
 #define MAX_CPU_CORES 4096
 #define MAX_SOCKETS 256
@@ -231,16 +231,21 @@ namespace PCMDaemon {
 
 	struct SharedPCMState {
 		char version[VERSION_SIZE];
-		uint64 lastUpdateTsc;
+		uint64 lastUpdateTscBegin;
 		uint64 timestamp;
 		uint64 cyclesToGetPCMState;
 		uint32 pollMs;
 		SharedPCMCounters pcm;
+		uint64 lastUpdateTscEnd;
 
 	public:
 		SharedPCMState() :
-			lastUpdateTsc(0),
-			pollMs(-1) {
+			lastUpdateTscBegin(0),
+			timestamp(0),
+			cyclesToGetPCMState(0),
+			pollMs(-1),
+            lastUpdateTscEnd(0)
+			{
 				memset(this->version, '\0', sizeof(char)*VERSION_SIZE);
 			}
 	} ALIGN(ALIGNMENT);

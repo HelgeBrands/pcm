@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2009-2012, Intel Corporation
+Copyright (c) 2009-2018, Intel Corporation
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -60,7 +60,7 @@ int32 MsrHandle::write(uint64 msr_number, uint64 value)
         req.write_value = value;
         BOOL status = DeviceIoControl(hDriver, IO_CTL_MSR_WRITE, &req, sizeof(MSR_Request), &result, sizeof(uint64), &reslength, NULL);
         assert(status && "Error in DeviceIoControl");
-        return reslength;
+        return status ? sizeof(uint64) : 0;
     }
 
     cvt_ds cvt;
@@ -213,7 +213,11 @@ MsrHandle::MsrHandle(uint32 cpu) : fd(-1), cpu_id(cpu)
         handle = ::open(path, O_RDWR);
     }
     delete[] path;
-    if (handle < 0) throw std::exception();
+    if (handle < 0)
+    {
+         std::cerr << "PCM Error: can't open MSR handle for core " << cpu << "\n";
+         throw std::exception();
+    }
     fd = handle;
 }
 

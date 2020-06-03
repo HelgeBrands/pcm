@@ -8,8 +8,9 @@ Processor Counter Monitor (PCM) is an application programming interface (API) an
 Current Build Status
 --------------------------------------------------------------------------------
 
-- Linux and OSX: [![Build Status](https://travis-ci.org/opcm/pcm.svg?branch=master)](https://travis-ci.org/opcm/pcm)
-- Windows: [![Build status](https://ci.appveyor.com/api/projects/status/0ytkojay9r0o6sxy?svg=true)](https://ci.appveyor.com/project/opcm/pcm)
+- Linux and OSX: [![Build Status](https://travis-ci.com/opcm/pcm.svg?branch=master)](https://travis-ci.com/opcm/pcm)
+- Windows: [![Build status](https://ci.appveyor.com/api/projects/status/github/opcm/pcm?branch=master&svg=true)](https://ci.appveyor.com/project/opcm/pcm)
+- FreeBSD: [![Build Status](https://api.cirrus-ci.com/github/opcm/pcm.svg)](https://cirrus-ci.com/github/opcm/pcm)
 
 --------------------------------------------------------------------------------
 PCM Tools
@@ -17,22 +18,47 @@ PCM Tools
 
 PCM provides a number of command-line utilities for real-time monitoring:
 
-- pcm : basic processor monitoring utility (instructions per cycle, core frequency (including Intel(r) Turbo Boost Technology), memory and Intel(r) Quick Path Interconnect bandwidth, local and remote memory bandwidth, cache misses, core and CPU package sleep C-state residency, core and CPU package thermal headroom, cache utilization, CPU and memory energy consumption)
-- pcm-memory : monitor memory bandwidth (per-channel and per-DRAM DIMM rank)
-- pcm-pcie : monitor PCIe bandwidth per-socket
-- pcm-iio : monitor PCIe bandwidth per PCIe device
-- pcm-numa : monitor local and remote memory accesses
-- pcm-power : monitor sleep and energy states of processor, Intel(r) Quick Path Interconnect, DRAM memory, reasons of CPU frequency throttling and other energy-related metrics
-- pcm-tsx: monitor performance metrics for Intel(r) Transactional Synchronization Extensions
-- pcm-core and pmu-query: query and monitor arbitrary processor core events
+- **pcm** : basic processor monitoring utility (instructions per cycle, core frequency (including Intel(r) Turbo Boost Technology), memory and Intel(r) Quick Path Interconnect bandwidth, local and remote memory bandwidth, cache misses, core and CPU package sleep C-state residency, core and CPU package thermal headroom, cache utilization, CPU and memory energy consumption)
+![pcm output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm.x.jpg)
+- **pcm-sensor-server** : pcm collector exposing metrics over http in JSON or Prometheus (text based) format
+- **pcm-memory** : monitor memory bandwidth (per-channel and per-DRAM DIMM rank)
+![pcm-memory output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm-memory.x.JPG)
+- **pcm-latency** : monitor L1 cache miss and DDR/PMM memory latency
+- **pcm-pcie** : monitor PCIe bandwidth per-socket
+- **pcm-iio** : monitor PCIe bandwidth per PCIe device
+![pcm-iio output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm-iio.png)
+- **pcm-numa** : monitor local and remote memory accesses
+- **pcm-power** : monitor sleep and energy states of processor, Intel(r) Quick Path Interconnect, DRAM memory, reasons of CPU frequency throttling and other energy-related metrics
+- **pcm-tsx**: monitor performance metrics for Intel(r) Transactional Synchronization Extensions
+- **pcm-core** and **pmu-query**: query and monitor arbitrary processor core events
+- **pcm-bw-histogram**: collect memory bandwidth utilization histogram
 
 Graphical front ends:
-- pcm-sensor :  front-end for KDE KSysGuard
-- pcm-service :  front-end for Windows perfmon
+- **pcm Grafana dashboard** :  front-end for Grafana (in [grafana](https://github.com/opcm/pcm/tree/master/grafana) directory)
+![pcm grafana output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm-dashboard.png)
+- **pcm-sensor** :  front-end for KDE KSysGuard
+- **pcm-service** :  front-end for Windows perfmon
 
-There is also a utility for reading/writing Intel model specific registers (pcm-msr) supported on Linux, Windows, Mac OS X and FreeBDS.
+There are also utilities for reading/writing model specific registers (**pcm-msr**), PCI configuration registers (**pcm-pcicfg**) and memory mapped registers (**pcm-mmio**) supported on Linux, Windows, Mac OS X and FreeBSD.
 
 And finally a daemon that stores core, memory and QPI counters in shared memory that can be be accessed by non-root users.
+
+--------------------------------------------------------------------------------
+Building PCM Tools
+--------------------------------------------------------------------------------
+
+- Linux: just type 'make'. You will get all the utilities (pcm.x, pcm-memory.x, etc) built in the main PCM directory.
+- FreeBSD/DragonFlyBSD: just type 'gmake'. You will get all the utilities (pcm.x, pcm-memory.x, etc) built in the main PCM directory. If the 'gmake' command is not available, you need to install GNU make from ports (for example with 'pkg install gmake').
+- Windows: follow the steps in [WINDOWS_HOWTO.md](https://github.com/opcm/pcm/blob/master/WINDOWS_HOWTO.md) (will need to build or download additional drivers).
+- Mac OS X: follow instructions in [MAC_HOWTO.txt](https://github.com/opcm/pcm/blob/master/MAC_HOWTO.txt)
+
+--------------------------------------------------------------------------------
+Downloading Pre-Compiled PCM Tools
+--------------------------------------------------------------------------------
+
+- Linux: precompiled RPMs (binary and source) are available [here](https://download.opensuse.org/repositories/home:/opcm/)
+- Windows: download PCM binaries as [appveyor build service](https://ci.appveyor.com/project/opcm/pcm/history) artifacts and required Visual C++ Redistributable from [www.microsoft.com](https://www.microsoft.com/en-us/download/details.aspx?id=48145). Additional drivers are needed, see [WINDOWS_HOWTO.md](https://github.com/opcm/pcm/blob/master/WINDOWS_HOWTO.md).
+- Docker: see [instructions on how to use pcm-sensor-server pre-compiled container from docker hub](https://github.com/opcm/pcm/blob/master/DOCKER_README.md).
 
 --------------------------------------------------------------------------------
 PCM API documentation
@@ -41,11 +67,6 @@ PCM API documentation
 PCM API documentation is embedded in the source code and can be generated into html format from source using Doxygen (www.doxygen.org).
 
 --------------------------------------------------------------------------------
-Building the PCM Tools
+Custom compilation options
 --------------------------------------------------------------------------------
-
-- Linux: just type 'make'. You will get all the utilities (pcm.x, pcm-memory.x, etc) built in the main PCM directory.
-- FreeBSD/DragonFlyBSD: just type 'gmake'. You will get all the utilities (pcm.x, pcm-memory.x, etc) built in the main PCM directory. If the 'gmake' command is not available, you need to install GNU make from ports (for example with 'pkg install gmake').
-- Windows: follow the steps in [WINDOWS_HOWTO.rtf](https://raw.githubusercontent.com/opcm/pcm/master/WINDOWS_HOWTO.rtf) (will will need to build or download additional drivers). You can also download PCM binaries from [appveyor build service](https://ci.appveyor.com/project/opcm/pcm/build/artifacts) and required Visual C++ Redistributable from [www.microsoft.com](https://www.microsoft.com/en-us/download/details.aspx?id=48145).
-- Mac OS X: follow instructions in [MAC_HOWTO.txt](https://github.com/opcm/pcm/blob/master/MAC_HOWTO.txt)
-
+The list of custom compilation options is located [here](https://github.com/opcm/pcm/blob/master/CUSTOM-COMPILE-OPTIONS.md)

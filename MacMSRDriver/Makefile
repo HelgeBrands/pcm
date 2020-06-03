@@ -4,22 +4,26 @@
 #
 # Build and install the PcmMsr kext and dynamically linked library.
 
+clean:
+	xcodebuild clean
+
 kext:
-	xcodebuild -configuration Release -target PcmMsrDriver clean build
+	xcodebuild -configuration Release -target PcmMsrDriver build
 
 library:
-	xcodebuild -configuration Release -target PcmMsrLibrary clean build
+	xcodebuild -configuration Release -target PcmMsrLibrary build
 
-install: kext library
+install: clean kext library
 	sudo sh ./kextload.sh
-	sudo cp build/Release/libPcmMsr.dylib /usr/lib/
-	sudo cp MSRAccessorPublic.h /usr/include/MSRAccessor.h
-	sudo cp MSRKernel.h /usr/include/MSRKernel.h
-	sudo cp PCIDriverInterface.h /usr/include/PCIDriverInterface.h
+	sudo mkdir -p /usr/local/include /usr/local/lib
+	sudo cp build/Release/libPcmMsr.dylib /usr/local/lib/
+	sudo cp MSRAccessorPublic.h /usr/local/include/MSRAccessor.h
+	sudo cp MSRKernel.h /usr/local/include/MSRKernel.h
+	sudo cp PCIDriverInterface.h /usr/local/include/PCIDriverInterface.h
 
 uninstall:
 	sudo sh ./kextunload.sh
-	sudo rm /usr/include/MSRKernel.h
-	sudo rm /usr/include/MSRAccessor.h
-	sudo rm /usr/lib/libPcmMsr.dylib
-	sudo rm /usr/include/PCIDriverInterface.h
+	sudo rm /usr/local/include/MSRKernel.h
+	sudo rm /usr/local/include/MSRAccessor.h
+	sudo rm /usr/local/lib/libPcmMsr.dylib
+	sudo rm /usr/local/include/PCIDriverInterface.h

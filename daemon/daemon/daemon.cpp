@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2009-2017, Intel Corporation
+   Copyright (c) 2009-2018, Intel Corporation
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -22,6 +22,10 @@
 #include <sys/shm.h>
 #include <errno.h>
 #include <time.h>
+
+#ifndef CLOCK_MONOTONIC_RAW
+#define CLOCK_MONOTONIC_RAW             (4) /* needed for SLES11 */
+#endif
 
 #include "daemon.h"
 #include "common.h"
@@ -47,7 +51,7 @@ namespace PCMDaemon {
 		readApplicationArguments(argc, argv);
 		setupSharedMemory();
 		setupPCM();
-		
+
 		//Put the poll interval in shared memory so that the client knows
 		sharedPCMState_->pollMs = pollIntervalMs_;
 
@@ -60,7 +64,7 @@ namespace PCMDaemon {
 
 	int Daemon::run()
 	{
-		std::cout << std::endl << "**** PCM Daemon Started *****" << std::endl;
+		std::cout << "\n**** PCM Daemon Started *****\n";
 
 		while(true)
 		{
@@ -74,8 +78,11 @@ namespace PCMDaemon {
 
 				snprintf(timeBuffer, 200, "[%02d %02d %04d %02d:%02d:%02d]", timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-				std::cout << timeBuffer << "\tFetching counters..." << std::endl;
+				std::cout << timeBuffer << "\tFetching counters...\n";
 			}
+
+                        // Here to make sure that any output elsewhere in this class or its callees is flushed before the sleep
+                        std::cout << std::flush;
 
 			usleep(pollIntervalMs_ * 1000);
 
@@ -124,7 +131,7 @@ namespace PCMDaemon {
 				pcmInstance_->setupCustomCoreEventsForNuma(conf);
 			}
 			catch (UnsupportedProcessorException& e) {
-		        std::cerr << std::endl << "PCM daemon does not support your processor currently." << std::endl << std::endl;
+		        std::cerr << "\nPCM daemon does not support your processor currently.\n\n";
 		        exit(EXIT_FAILURE);
 			}
 
@@ -141,6 +148,11 @@ namespace PCMDaemon {
 			regs[3].fields.event_select = ARCH_LLC_REFERENCE_EVTNR;
 			regs[3].fields.umask = ARCH_LLC_REFERENCE_UMASK;
 
+            if (pcmInstance_->getMaxCustomCoreEvents() == 3)
+            {
+                conf.nGPCounters = 2; // drop LLC metrics
+            }
+
 		    status = pcmInstance_->program(PCM::EXT_CUSTOM_CORE_EVENTS, &conf);
 		}
 		else
@@ -153,21 +165,21 @@ namespace PCMDaemon {
 			case PCM::Success:
 				break;
 			case PCM::MSRAccessDenied:
-				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (no MSR or PCI CFG space access)." << std::endl;
+				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (no MSR or PCI CFG space access).\n";
 				exit(EXIT_FAILURE);
 			case PCM::PMUBusy:
-				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (Performance Monitoring Unit is occupied by other application). Try to stop the application that uses PMU." << std::endl;
-				std::cerr << "Alternatively you can try to reset PMU configuration at your own risk. Try to reset? (y/n)" << std::endl;
+				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (Performance Monitoring Unit is occupied by other application). Try to stop the application that uses PMU.\n";
+				std::cerr << "Alternatively you can try to reset PMU configuration at your own risk. Try to reset? (y/n)\n";
 				char yn;
 				std::cin >> yn;
 				if ('y' == yn)
 				{
 					pcmInstance_->resetPMU();
-					std::cerr << "PMU configuration has been reset. Try to rerun the program again." << std::endl;
+					std::cerr << "PMU configuration has been reset. Try to rerun the program again.\n";
 				}
 				exit(EXIT_FAILURE);
 			default:
-				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (Unknown error)." << std::endl;
+				std::cerr << "Access to Intel(r) Performance Counter Monitor has denied (Unknown error).\n";
 				exit(EXIT_FAILURE);
 		}
 	}
@@ -182,7 +194,7 @@ namespace PCMDaemon {
 			printExampleUsageAndExit(argv);
 		}
 
-		std::cout << std::endl;
+		std::cout << "\n";
 
 		while ((opt = getopt(argc, argv, "p:c:dg:m:s:")) != -1)
 		{
@@ -190,7 +202,7 @@ namespace PCMDaemon {
 			case 'p':
 				pollIntervalMs_ = atoi(optarg);
 
-				std::cout << "Polling every " << pollIntervalMs_ << "ms" << std::endl;
+				std::cout << "Polling every " << pollIntervalMs_ << "ms\n";
 				break;
 			case 'c':
 				{
@@ -215,19 +227,19 @@ namespace PCMDaemon {
 						++counterCount;
 					}
 
-					std::cout << "Listening to '" << subscriber << "' counters" << std::endl;
+					std::cout << "Listening to '" << subscriber << "' counters\n";
 				}
 				break;
 			case 'd':
 				debugMode_ = true;
 
-				std::cout << "Debug mode enabled" << std::endl;
+				std::cout << "Debug mode enabled\n";
 				break;
 			case 'g':
 				{
 					groupName_ = std::string(optarg);
 
-					std::cout << "Restricting to group: " << groupName_ << std::endl;
+					std::cout << "Restricting to group: " << groupName_ << "\n";
 				}
 				break;
 			case 'm':
@@ -255,14 +267,14 @@ namespace PCMDaemon {
 					else if(mode_ == Mode::ABSOLUTE)
 						std::cout << "absolute";
 
-					std::cout << ")" << std::endl;
+					std::cout << ")\n";
 				}
 				break;
 			case 's':
 				{
 					shmIdLocation_ = std::string(optarg);
 
-					std::cout << "Shared memory ID location: " << shmIdLocation_ << std::endl;
+					std::cout << "Shared memory ID location: " << shmIdLocation_ << "\n";
 				}
 				break;
 			default:
@@ -276,21 +288,21 @@ namespace PCMDaemon {
 			printExampleUsageAndExit(argv);
 		}
 
-		std::cout << "PCM Daemon version: " << VERSION << std::endl << std::endl;
+		std::cout << "PCM Daemon version: " << VERSION << "\n\n";
 	}
 
 	void Daemon::printExampleUsageAndExit(char *argv[])
 	{
-		std::cerr << std::endl;
-		std::cerr << "-------------------------------------------------------------------" << std::endl;
-		std::cerr << "Example usage: " << argv[0] << " -p 50 -c numa -c memory" << std::endl;
-		std::cerr << "Poll every 50ms. Fetch counters for numa and memory" << std::endl << std::endl;
+		std::cerr << "\n";
+		std::cerr << "-------------------------------------------------------------------\n";
+		std::cerr << "Example usage: " << argv[0] << " -p 50 -c numa -c memory\n";
+		std::cerr << "Poll every 50ms. Fetch counters for numa and memory\n\n";
 
-		std::cerr << "Example usage: " << argv[0] << " -p 250 -c all -g pcm -m absolute" << std::endl;
-		std::cerr << "Poll every 250ms. Fetch all counters (core, numa & memory)." << std::endl;
-		std::cerr << "Restrict access to user group 'pcm'. Store absolute values on each poll interval" << std::endl << std::endl;
-		
-		std::cerr << "-p <milliseconds> for poll frequency" << std::endl;
+		std::cerr << "Example usage: " << argv[0] << " -p 250 -c all -g pcm -m absolute\n";
+		std::cerr << "Poll every 250ms. Fetch all counters (core, numa & memory).\n";
+		std::cerr << "Restrict access to user group 'pcm'. Store absolute values on each poll interval\n\n";
+
+		std::cerr << "-p <milliseconds> for poll frequency\n";
 		std::cerr << "-c <counter> to request specific counters (Allowed counters: all ";
 
 		for(std::vector<std::string>::const_iterator it = allowedSubscribers_.begin(); it != allowedSubscribers_.end(); ++it)
@@ -305,12 +317,12 @@ namespace PCMDaemon {
 
 		std::cerr << ")";
 
-		std::cerr << std::endl << "-d flag for debug output [optional]" << std::endl;
-		std::cerr << "-g <group> to restrict access to group [optional]" << std::endl;
-		std::cerr << "-m <mode> stores differences or absolute values (Allowed: difference absolute) Default: difference [optional]" << std::endl;
-		std::cerr << "-s <filepath> to store shared memory ID Default: " << std::string(DEFAULT_SHM_ID_LOCATION) << " [optional]" << std::endl;
+		std::cerr << "\n-d flag for debug output [optional]\n";
+		std::cerr << "-g <group> to restrict access to group [optional]\n";
+		std::cerr << "-m <mode> stores differences or absolute values (Allowed: difference absolute) Default: difference [optional]\n";
+		std::cerr << "-s <filepath> to store shared memory ID Default: " << std::string(DEFAULT_SHM_ID_LOCATION) << " [optional]\n";
 
-		std::cerr << std::endl;
+		std::cerr << "\n";
 
 		exit(EXIT_FAILURE);
 	}
@@ -323,15 +335,15 @@ namespace PCMDaemon {
 		sharedMemoryId_ = shmget(IPC_PRIVATE, sizeof(SharedPCMState), shmFlag);
 		if (sharedMemoryId_ < 0)
 		{
-			std::cerr << "Failed to allocate shared memory segment (errno=" << errno << ")" << std::endl;
+			std::cerr << "Failed to allocate shared memory segment (errno=" << errno << ")\n";
 			exit(EXIT_FAILURE);
 		}
 
-		//Store shm id in SHM_KEY_LOCATION file
+		//Store shm id in a file (shmIdLocation_)
 		FILE *fp = fopen (shmIdLocation_.c_str(), "w");
 		if (fp < 0)
 		{
-			std::cerr << "Failed to create/write to shared memory key location: " << shmIdLocation_ << std::endl;
+			std::cerr << "Failed to create/write to shared memory key location: " << shmIdLocation_ << "\n";
 			exit(EXIT_FAILURE);
 		}
 		fprintf (fp, "%i", sharedMemoryId_);
@@ -348,7 +360,7 @@ namespace PCMDaemon {
 			int success = shmctl(sharedMemoryId_, IPC_SET, &shmData);
 			if(success < 0)
 			{
-				std::cerr << "Failed to IPC_SET (errno=" << errno << ")" << std::endl;
+				std::cerr << "Failed to IPC_SET (errno=" << errno << ")\n";
 				exit(EXIT_FAILURE);
 			}
 
@@ -357,7 +369,7 @@ namespace PCMDaemon {
 			success = chown(shmIdLocation_.c_str(), uid, gid);
 			if(success < 0)
 			{
-				std::cerr << "Failed to change ownership of shared memory key location: " << shmIdLocation_ << std::endl;
+				std::cerr << "Failed to change ownership of shared memory key location: " << shmIdLocation_ << "\n";
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -365,21 +377,21 @@ namespace PCMDaemon {
 		sharedPCMState_ = (SharedPCMState*)shmat(sharedMemoryId_, NULL, 0);
 		if (sharedPCMState_ == (void *)-1)
 		{
-			std::cerr << "Failed to attach shared memory segment (errno=" << errno << ")" << std::endl;
+			std::cerr << "Failed to attach shared memory segment (errno=" << errno << ")\n";
 			exit(EXIT_FAILURE);
 		}
 
 		//Clear out shared memory
-		std::memset(sharedPCMState_, 0, sizeof(SharedPCMState));
+		sharedPCMState_ = new (sharedPCMState_) SharedPCMState(); // use placement new operator
 	}
 
-	gid_t Daemon::resolveGroupName(std::string& groupName)
+	gid_t Daemon::resolveGroupName(const std::string& groupName)
 	{
 		struct group* group = getgrnam(groupName.c_str());
 
 		if(group == NULL)
 		{
-			std::cerr << "Failed to resolve group '" << groupName << "'" << std::endl;
+			std::cerr << "Failed to resolve group '" << groupName << "'\n";
 			exit(EXIT_FAILURE);
 		}
 
@@ -391,8 +403,7 @@ namespace PCMDaemon {
 		memcpy (sharedPCMState_->version, VERSION, sizeof(VERSION));
 		sharedPCMState_->version[sizeof(VERSION)] = '\0';
 
-		sharedPCMState_->lastUpdateTsc = RDTSC();
-		sharedPCMState_->timestamp = getTimestamp();
+        sharedPCMState_->lastUpdateTscBegin = RDTSC();
 
 		updatePCMState(&systemStatesAfter_, &socketStatesAfter_, &coreStatesAfter_);
 
@@ -412,8 +423,13 @@ namespace PCMDaemon {
 			getPCMQPI();
 		}
 
-		sharedPCMState_->cyclesToGetPCMState = RDTSC() - sharedPCMState_->lastUpdateTsc;
+		const auto lastUpdateTscEnd = RDTSC();
+		sharedPCMState_->cyclesToGetPCMState = lastUpdateTscEnd - sharedPCMState_->lastUpdateTscBegin;
+		sharedPCMState_->timestamp = getTimestamp();
 
+		// As the client polls this timestamp (lastUpdateTsc)
+		// All the data has to be in shm before
+		sharedPCMState_->lastUpdateTscEnd = lastUpdateTscEnd;
 		if(mode_ == Mode::DIFFERENCE)
 		{
 			swapPCMBeforeAfterState();
@@ -467,8 +483,8 @@ namespace PCMDaemon {
 
 		const uint32 numCores = sharedPCMState_->pcm.system.numOfCores;
 
-		uint32 onlineCoresI = 0;
-		for(uint32 coreI = 0; coreI < numCores ; ++coreI)
+		uint32 onlineCoresI(0);
+		for(uint32 coreI(0); coreI < numCores ; ++coreI)
 		{
 			if(!pcmInstance_->isCoreOnline(coreI))
 				continue;
@@ -569,7 +585,7 @@ namespace PCMDaemon {
 		float iMC_Wr_socket[MAX_SOCKETS];
 		uint64 partial_write[MAX_SOCKETS];
 
-		for(uint32 skt = 0; skt < numSockets; ++skt)
+		for(uint32 skt(0); skt < numSockets; ++skt)
 		{
 			iMC_Rd_socket[skt] = 0.0;
 			iMC_Wr_socket[skt] = 0.0;
@@ -577,9 +593,10 @@ namespace PCMDaemon {
 
 			for(uint32 channel(0); channel < MEMORY_MAX_IMC_CHANNELS; ++channel)
 			{
+				//In case of JKT-EN, there are only three channels. Skip one and continue.
 				bool memoryReadAvailable = getMCCounter(channel,MEMORY_READ,serverUncorePowerStatesBefore_[skt],serverUncorePowerStatesAfter_[skt]) == 0.0;
 				bool memoryWriteAvailable = getMCCounter(channel,MEMORY_WRITE,serverUncorePowerStatesBefore_[skt],serverUncorePowerStatesAfter_[skt]) == 0.0;
-				if(memoryReadAvailable && memoryWriteAvailable) //In case of JKT-EN, there are only three channels. Skip one and continue.
+				if(memoryReadAvailable && memoryWriteAvailable)
 				{
 					iMC_Rd_socket_chan[skt][channel] = -1.0;
 					iMC_Wr_socket_chan[skt][channel] = -1.0;
@@ -599,8 +616,8 @@ namespace PCMDaemon {
 	    float systemRead(0.0);
 	    float systemWrite(0.0);
 
-	    uint32 onlineSocketsI = 0;
-	    for(uint32 skt = 0; skt < numSockets; ++skt)
+	    uint32 onlineSocketsI(0);
+	    for(uint32 skt (0); skt < numSockets; ++skt)
 		{
 			if(!pcmInstance_->isSocketOnline(skt))
 				continue;
@@ -608,7 +625,8 @@ namespace PCMDaemon {
 			uint64 currentChannelI(0);
 	    	for(uint64 channel(0); channel < MEMORY_MAX_IMC_CHANNELS; ++channel)
 			{
-				if(iMC_Rd_socket_chan[0][skt*MEMORY_MAX_IMC_CHANNELS+channel] < 0.0 && iMC_Wr_socket_chan[0][skt*MEMORY_MAX_IMC_CHANNELS+channel] < 0.0) //If the channel read neg. value, the channel is not working; skip it.
+				//If the channel read neg. value, the channel is not working; skip it.
+				if(iMC_Rd_socket_chan[0][skt*MEMORY_MAX_IMC_CHANNELS+channel] < 0.0 && iMC_Wr_socket_chan[0][skt*MEMORY_MAX_IMC_CHANNELS+channel] < 0.0)
 					continue;
 
 				float socketChannelRead = iMC_Rd_socket_chan[0][skt*MEMORY_MAX_IMC_CHANNELS+channel];
@@ -653,7 +671,7 @@ namespace PCMDaemon {
 		qpi.incomingQPITrafficMetricsAvailable = pcmInstance_->incomingQPITrafficMetricsAvailable();
 		if (qpi.incomingQPITrafficMetricsAvailable)
 		{
-			uint32 onlineSocketsI = 0;
+			uint32 onlineSocketsI(0);
 			for (uint32 i(0); i < numSockets; ++i)
 			{
 				if(!pcmInstance_->isSocketOnline(i))
@@ -681,7 +699,7 @@ namespace PCMDaemon {
 		qpi.outgoingQPITrafficMetricsAvailable = pcmInstance_->outgoingQPITrafficMetricsAvailable();
 		if (qpi.outgoingQPITrafficMetricsAvailable)
 		{
-			uint32 onlineSocketsI = 0;
+			uint32 onlineSocketsI(0);
 			for (uint32 i(0); i < numSockets; ++i)
 			{
 				if(!pcmInstance_->isSocketOnline(i))
@@ -713,7 +731,7 @@ namespace PCMDaemon {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 
-		uint64 epoch = (uint64)now.tv_sec * 10E9;
+		uint64 epoch = (uint64)now.tv_sec * 1E9;
 		epoch+=(uint64)now.tv_nsec;
 
 		return epoch;
@@ -727,7 +745,7 @@ namespace PCMDaemon {
 			int success = shmdt(sharedPCMState_);
 			if(success != 0)
 			{
-				std::cerr << "Failed to detatch the shared memory segment (errno=" << errno << ")" << std::endl;
+				std::cerr << "Failed to detatch the shared memory segment (errno=" << errno << ")\n";
 			}
 			else
 			{
@@ -735,7 +753,7 @@ namespace PCMDaemon {
 				success = shmctl(sharedMemoryId_, IPC_RMID, NULL);
 				if(success != 0)
 				{
-					std::cerr << "Failed to delete the shared memory segment (errno=" << errno << ")" << std::endl;
+					std::cerr << "Failed to delete the shared memory segment (errno=" << errno << ")\n";
 				}
 			}
 
@@ -743,7 +761,7 @@ namespace PCMDaemon {
 			success = remove(shmIdLocation_.c_str());
 			if(success != 0)
 			{
-				std::cerr << "Failed to delete shared memory id location: " << shmIdLocation_ << " (errno=" << errno << ")" << std::endl;
+				std::cerr << "Failed to delete shared memory id location: " << shmIdLocation_ << " (errno=" << errno << ")\n";
 			}
 		}
 	}

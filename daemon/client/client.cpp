@@ -55,7 +55,7 @@ namespace PCMDaemon {
 
 		//Set last updated timestamp to avoid a detected change
 		//when the client starts
-		lastUpdatedClientTsc_ = sharedPCMState_->lastUpdateTsc;
+		lastUpdatedClientTsc_ = sharedPCMState_->lastUpdateTscEnd;
 	}
 
 	PCMDaemon::SharedPCMState& Client::read()
@@ -75,7 +75,7 @@ namespace PCMDaemon {
 			// Check client version matches daemon version
 			if(strlen(sharedPCMState_->version) > 0 && strcmp(sharedPCMState_->version, VERSION) != 0)
 			{
-				std::cout << sharedPCMState_->lastUpdateTsc << " " << lastUpdatedClientTsc_ << std::endl;
+				std::cout << sharedPCMState_->lastUpdateTscEnd << " " << lastUpdatedClientTsc_ << "\n";
 				std::stringstream ss;
 				ss << "Out of date PCM daemon client. Client version: " << VERSION << " Daemon version: " << sharedPCMState_->version;
 
@@ -85,7 +85,7 @@ namespace PCMDaemon {
 			if(countersHaveUpdated())
 			{
 				//There is new data
-				lastUpdatedClientTsc_ = sharedPCMState_->lastUpdateTsc;
+				lastUpdatedClientTsc_ = sharedPCMState_->lastUpdateTscEnd;
 
 				return *sharedPCMState_;
 			}
@@ -99,7 +99,7 @@ namespace PCMDaemon {
 
 	bool Client::countersHaveUpdated()
 	{
-		return lastUpdatedClientTsc_ != sharedPCMState_->lastUpdateTsc;
+		return lastUpdatedClientTsc_ != sharedPCMState_->lastUpdateTscEnd;
 	}
 
 	void Client::setupSharedMemory()
@@ -108,7 +108,7 @@ namespace PCMDaemon {
 		FILE *fp = fopen (shmIdLocation_.c_str(), "r");
 		if (fp <= 0)
 		{
-			std::cerr << "Failed to open to shared memory key location: " << shmIdLocation_ << std::endl;
+			std::cerr << "Failed to open to shared memory key location: " << shmIdLocation_ << "\n";
 			exit(EXIT_FAILURE);
 		}
 		int maxCharsToRead = 11;

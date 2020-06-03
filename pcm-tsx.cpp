@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2009-2013, Intel Corporation
+   Copyright (c) 2009-2018, Intel Corporation
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -89,40 +89,48 @@ TSXEvent eventDefinition[] = {
 
 void print_usage(const string progname)
 {
-    cerr << endl << " Usage: " << endl << " " << progname
-         << " --help | [delay] [options] [-- external_program [external_program_options]]" << endl;
-    cerr << "   <delay>                           => time interval to sample performance counters." << endl;
-    cerr << "                                        If not specified, or 0, with external program given" << endl;
-    cerr << "                                        will read counters only after external program finishes" << endl;
-    cerr << " Supported <options> are: " << endl;
-    cerr << "  -h    | --help  | /h               => print this help and exit" << endl;
-    cerr << "  -F    | -force                     => force running this program despite lack of HW RTM support (optional)" << endl;
-    cerr << "  -csv[=file.csv] | /csv[=file.csv]  => output compact CSV format to screen or" << endl
-         << "                                        to a file, in case filename is provided" << endl;
+    cerr << "\n Usage: \n " << progname
+         << " --help | [delay] [options] [-- external_program [external_program_options]]\n";
+    cerr << "   <delay>                           => time interval to sample performance counters.\n";
+    cerr << "                                        If not specified, or 0, with external program given\n";
+    cerr << "                                        will read counters only after external program finishes\n";
+    cerr << " Supported <options> are: \n";
+    cerr << "  -h    | --help  | /h               => print this help and exit\n";
+    cerr << "  -F    | -force                     => force running this program despite lack of HW RTM support (optional)\n";
+    cerr << "  -csv[=file.csv] | /csv[=file.csv]  => output compact CSV format to screen or\n"
+         << "                                        to a file, in case filename is provided\n";
     cerr << "  [-e event1] [-e event2] [-e event3]=> optional list of custom TSX events to monitor (up to 4)."
-         << "  The list of supported events:" << endl;
+         << "  The list of supported events:\n";
     for (uint32 i = 0; i < sizeof(eventDefinition) / sizeof(TSXEvent); ++i)
     {
-        cerr << eventDefinition[i].name << "\t" << eventDefinition[i].description << endl;
+        cerr << eventDefinition[i].name << "\t" << eventDefinition[i].description << "\n";
     }
-    cerr << endl;
-    cerr << " Examples:" << endl;
-    cerr << "  " << progname << " 1                  => print counters every second without core and socket output" << endl;
-    cerr << "  " << progname << " 0.5 -csv=test.log  => twice a second save counter values to test.log in CSV format" << endl;
-    cerr << "  " << progname << " /csv 5 2>/dev/null => one sampe every 5 seconds, and discard all diagnostic output" << endl;
-    cerr << endl;
+    cerr << "\n";
+    cerr << " Examples:\n";
+    cerr << "  " << progname << " 1                  => print counters every second without core and socket output\n";
+    cerr << "  " << progname << " 0.5 -csv=test.log  => twice a second save counter values to test.log in CSV format\n";
+    cerr << "  " << progname << " /csv 5 2>/dev/null => one sampe every 5 seconds, and discard all diagnostic output\n";
+    cerr << "\n";
 }
+
+
+#define TX_CYCLES_POS           (1)
+#define TX_CYCLES_COMMITED_POS  (2)
+#define N_HLE_POS               (3)
+#define N_RTM_POS               (0)
+
+bool supportNHLECountBasicStat = true;
 
 template <class StateType>
 void print_basic_stats(const StateType & BeforeState, const StateType & AfterState, bool csv)
 {
     uint64 cycles = getCycles(BeforeState, AfterState);
     uint64 instr = getInstructionsRetired(BeforeState, AfterState);
-    const uint64 TXcycles = getNumberOfCustomEvents(3, BeforeState, AfterState);
-    const uint64 TXcycles_commited = getNumberOfCustomEvents(2, BeforeState, AfterState);
+    const uint64 TXcycles = getNumberOfCustomEvents(TX_CYCLES_POS, BeforeState, AfterState);
+    const uint64 TXcycles_commited = getNumberOfCustomEvents(TX_CYCLES_COMMITED_POS, BeforeState, AfterState);
     const uint64 Abr_cycles = (TXcycles > TXcycles_commited) ? (TXcycles - TXcycles_commited) : 0ULL;
-    uint64 nRTM = getNumberOfCustomEvents(0, BeforeState, AfterState);
-    uint64 nHLE = getNumberOfCustomEvents(1, BeforeState, AfterState);
+    uint64 nRTM = getNumberOfCustomEvents(N_RTM_POS, BeforeState, AfterState);
+    uint64 nHLE = getNumberOfCustomEvents(N_HLE_POS, BeforeState, AfterState);
 
     if (csv)
     {
@@ -132,7 +140,10 @@ void print_basic_stats(const StateType & BeforeState, const StateType & AfterSta
         cout << TXcycles << "," << std::setw(5) << 100. * double(TXcycles) / double(cycles) << "%,";
         cout << Abr_cycles << "," << std::setw(5) << 100. * double(Abr_cycles) / double(cycles) << "%,";
         cout << nRTM << ",";
-        cout << nHLE << ",";
+        if (supportNHLECountBasicStat)
+        {
+            cout << nHLE << ",";
+        }
     }
     else
     {
@@ -142,7 +153,10 @@ void print_basic_stats(const StateType & BeforeState, const StateType & AfterSta
         cout << unit_format(TXcycles) << " (" << std::setw(5) << 100. * double(TXcycles) / double(cycles) << "%)       ";
         cout << unit_format(Abr_cycles) << " (" << std::setw(5) << 100. * double(Abr_cycles) / double(cycles) << "%) ";
         cout << unit_format(nRTM) << "   ";
-        cout << unit_format(nHLE) << "    ";
+        if (supportNHLECountBasicStat)
+        {
+            cout << unit_format(nHLE) << "    ";
+        }
     }
 
     if (nRTM + nHLE)
@@ -154,7 +168,7 @@ void print_basic_stats(const StateType & BeforeState, const StateType & AfterSta
             cout << unit_format(cyclesPerTransaction) << "\n";
     }
     else
-        cout << " N/A" << "\n";
+        cout << " N/A\n";
 }
 
 template <class StateType>
@@ -191,9 +205,9 @@ int main(int argc, char * argv[])
     std::cerr.rdbuf(&nullStream2);
 #endif
 
-    cerr << endl;
-    cerr << " Processor Counter Monitor: Intel(r) Transactional Synchronization Extensions Monitoring Utility " << endl;
-    cerr << endl;
+    cerr << "\n";
+    cerr << " Processor Counter Monitor: Intel(r) Transactional Synchronization Extensions Monitoring Utility \n";
+    cerr << "\n";
 
     double delay = -1.0;
     char * sysCmd = NULL;
@@ -238,16 +252,21 @@ int main(int argc, char * argv[])
                 argv++;
                 argc--;
                 if (events.size() >= 4) {
-                    cerr << "At most 4 events are allowed" << endl;
+                    cerr << "At most 4 events are allowed\n";
                     exit(EXIT_FAILURE);
                 }
                 cur_event = findEvent(*argv);
                 if (cur_event < 0) {
-                    cerr << "Event " << *argv << " is not supported. See the list of supported events" << endl;
+                    cerr << "Event " << *argv << " is not supported. See the list of supported events\n";
                     print_usage(program);
                     exit(EXIT_FAILURE);
                 }
                 events.push_back(cur_event);
+                continue;
+            }
+            else
+            if (CheckAndForceRTMAbortMode(*argv, m)) // for pcm-tsx this option is enabled for testing only, not exposed in the help
+            {
                 continue;
             }
             else if ((strncmp(*argv, "-F", 2) == 0) ||
@@ -273,7 +292,7 @@ int main(int argc, char * argv[])
                 if (is_str_stream.eof() && !is_str_stream.fail()) {
                     delay = delay_input;
                 } else {
-                    cerr << "WARNING: unknown command-line option: \"" << *argv << "\". Ignoring it." << endl;
+                    cerr << "WARNING: unknown command-line option: \"" << *argv << "\". Ignoring it.\n";
                     print_usage(program);
                     exit(EXIT_FAILURE);
                 }
@@ -289,7 +308,6 @@ int main(int argc, char * argv[])
 
     PCM::ExtendedCustomCoreEventDescription conf;
     conf.fixedCfg = NULL; // default
-    conf.nGPCounters = 4;
     EventSelectRegister regs[4];
     conf.gpCounterCfg = regs;
     for (int i = 0; i < 4; ++i)
@@ -297,23 +315,40 @@ int main(int argc, char * argv[])
 
     if (events.empty())
     {
-        regs[0].fields.event_select = 0xc9;
-        regs[0].fields.umask = 0x01;
-        regs[1].fields.event_select = 0xc8;
-        regs[1].fields.umask = 0x01;
-        regs[2].fields.event_select = 0x3c;
-        regs[2].fields.in_tx = 1;
-        regs[2].fields.in_txcp = 1;
-        regs[3].fields.event_select = 0x3c;
-        regs[3].fields.in_tx = 1;
+        conf.nGPCounters = 4;
+        if (m->getMaxCustomCoreEvents() == 3)
+        {
+            conf.nGPCounters = 3;
+            supportNHLECountBasicStat = false;
+        }
+        regs[N_RTM_POS].fields.event_select = 0xc9;
+        regs[N_RTM_POS].fields.umask = 0x01;
+        regs[N_HLE_POS].fields.event_select = 0xc8;
+        regs[N_HLE_POS].fields.umask = 0x01;
+        regs[TX_CYCLES_COMMITED_POS].fields.event_select = 0x3c;
+        regs[TX_CYCLES_COMMITED_POS].fields.in_tx = 1;
+        regs[TX_CYCLES_COMMITED_POS].fields.in_txcp = 1;
+        regs[TX_CYCLES_POS].fields.event_select = 0x3c;
+        regs[TX_CYCLES_POS].fields.in_tx = 1;
     }
     else
     {
+        conf.nGPCounters = (uint32) events.size();
         for (unsigned int i = 0; i < events.size(); ++i)
         {
             regs[i].fields.event_select = eventDefinition[events[i]].event;
             regs[i].fields.umask = eventDefinition[events[i]].umask;
         }
+    }
+
+    bool rtm_support = m->supportsRTM();
+
+    if (!rtm_support) {
+        if (!force) {
+            cerr << "No RTM support detected, use -F if you still want to run this program.\n";
+            exit(EXIT_FAILURE);
+        }
+        cerr << "No RTM support detected, but -F found as argument, running anyway.\n";
     }
 
     PCM::ErrorCode status = m->program(PCM::EXT_CUSTOM_CORE_EVENTS, &conf);
@@ -322,35 +357,25 @@ int main(int argc, char * argv[])
     case PCM::Success:
         break;
     case PCM::MSRAccessDenied:
-        cerr << "Access to Processor Counter Monitor has denied (no MSR or PCI CFG space access)." << endl;
+        cerr << "Access to Processor Counter Monitor has denied (no MSR or PCI CFG space access).\n";
         exit(EXIT_FAILURE);
     case PCM::PMUBusy:
-        cerr << "Access to Processor Counter Monitor has denied (Performance Monitoring Unit is occupied by other application). Try to stop the application that uses PMU." << endl;
-        cerr << "Alternatively you can try to reset PMU configuration at your own risk. Try to reset? (y/n)" << endl;
+        cerr << "Access to Processor Counter Monitor has denied (Performance Monitoring Unit is occupied by other application). Try to stop the application that uses PMU.\n";
+        cerr << "Alternatively you can try to reset PMU configuration at your own risk. Try to reset? (y/n)\n";
         char yn;
         std::cin >> yn;
         if ('y' == yn)
         {
             m->resetPMU();
-            cerr << "PMU configuration has been reset. Try to rerun the program again." << endl;
+            cerr << "PMU configuration has been reset. Try to rerun the program again.\n";
         }
         exit(EXIT_FAILURE);
     default:
-        cerr << "Access to Processor Counter Monitor has denied (Unknown error)." << endl;
+        cerr << "Access to Processor Counter Monitor has denied (Unknown error).\n";
         exit(EXIT_FAILURE);
     }
 
-    cerr << "\nDetected " << m->getCPUBrandString() << " \"Intel(r) microarchitecture codename " << m->getUArchCodename() << "\"" << endl;
-
-    bool rtm_support = m->supportsRTM();
-
-    if (!rtm_support) {
-        if (!force) {
-            cerr << "No RTM support detected, use -F if you still want to run this program." << endl;
-            exit(EXIT_FAILURE);
-        }
-        cerr << "No RTM support detected, but -F found as argument, running anyway." << endl;
-    }
+    print_cpu_details();
 
     uint64 BeforeTime = 0, AfterTime = 0;
     SystemCounterState SysBeforeState, SysAfterState;
@@ -375,7 +400,7 @@ int main(int argc, char * argv[])
         if (((delay < 1.0) && (delay > 0.0)) || (delay <= 0.0)) delay = PCM_DELAY_DEFAULT;
     }
 
-    cerr << "Update every " << delay << " seconds" << endl;
+    cerr << "Update every " << delay << " seconds\n";
 
     std::cout.precision(2);
     std::cout << std::fixed;
@@ -419,21 +444,33 @@ int main(int argc, char * argv[])
         m->getAllCounterStates(SysAfterState, DummySocketStates, AfterState);
 
         cout << "Time elapsed: " << dec << fixed << AfterTime - BeforeTime << " ms\n";
-        //cout << "Called sleep function for "<<dec<<fixed<<delay_ms<<" ms\n";
+        //cout << "Called sleep function for " <<dec<<fixed<<delay_ms<< " ms\n";
 
         if (events.empty())
         {
-            if (csv)
-                cout << "Core,IPC,Instructions,Cycles,Transactional Cycles,Aborted Cycles,#RTM,#HLE,Cycles/Transaction \n";
-            else
-                cout << "Core | IPC  | Instructions | Cycles  | Transactional Cycles | Aborted Cycles  | #RTM  | #HLE  | Cycles/Transaction \n";
+            if (csv) {
+                cout << "Core,IPC,Instructions,Cycles,Transactional Cycles,Transactional Cycles %,Aborted Cycles,Aborted Cycles %,#RTM,";
+                if (supportNHLECountBasicStat)
+                {
+                    cout << "#HLE,";
+                }
+                cout << "Cycles/Transaction \n";
+            }
+            else {
+                cout << "Core | IPC  | Instructions | Cycles  | Transactional Cycles | Aborted Cycles  | #RTM  |";
+                if (supportNHLECountBasicStat)
+                {
+                    cout << " #HLE  |";
+                }
+                cout << " Cycles/Transaction \n";
+            }
         }
         else
         {
             for (uint32 i = 0; i < events.size(); ++i)
             {
                 cout << "Event" << i << ": " << eventDefinition[events[i]].name << " " << eventDefinition[events[i]].description << " (raw 0x" <<
-                std::hex << (uint32)eventDefinition[events[i]].umask << (uint32)eventDefinition[events[i]].event << std::dec << ")" << endl;
+                std::hex << (uint32)eventDefinition[events[i]].umask << (uint32)eventDefinition[events[i]].event << std::dec << ")\n";
             }
             cout << "\n";
             if (csv)
@@ -464,7 +501,7 @@ int main(int argc, char * argv[])
         else
             print_custom_stats(SysBeforeState, SysAfterState, csv);
 
-        std::cout << std::endl;
+        std::cout << "\n";
 
         swap(BeforeTime, AfterTime);
         swap(BeforeState, AfterState);

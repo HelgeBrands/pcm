@@ -4,7 +4,8 @@ dist: trusty
 
 script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cd MacMSRDriver && make kext library && cd ..; fi
-  - make
+  - g++ --version
+  - make install prefix=.
 
 os:
   - linux

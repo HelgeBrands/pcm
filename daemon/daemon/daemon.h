@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2009-2017, Intel Corporation
+   Copyright (c) 2009-2018, Intel Corporation
    All rights reserved.
 
    Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,7 @@ namespace PCMDaemon {
 		void readApplicationArguments(int argc, char *argv[]);
 		void printExampleUsageAndExit(char *argv[]);
 		void setupSharedMemory();
-		gid_t resolveGroupName(std::string& groupName);
+		gid_t resolveGroupName(const std::string& groupName);
 		void getPCMCounters();
 		void updatePCMState(SystemCounterState* systemStates, std::vector<SocketCounterState>* socketStates, std::vector<CoreCounterState>* coreStates);
 		void swapPCMBeforeAfterState();

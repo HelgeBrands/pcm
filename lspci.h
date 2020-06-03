@@ -4,12 +4,30 @@
 #include <vector>
 #include <fstream>
 #include "cpucounters.h"
-using namespace std;
+
+#if defined(_MSC_VER)
+#define PCI_IDS_PATH "pci.ids"
+#define PCI_IDS_NOT_FOUND "pci.ids file is not available. Download it from" \
+    " https://raw.githubusercontent.com/pciutils/pciids/master/pci.ids."
+#elif defined (__FreeBSD__) || defined(__DragonFly__)
+#define PCI_IDS_PATH "/usr/local/share/pciids/pci.ids"
+#define PCI_IDS_NOT_FOUND "/usr/local/share/pciids/pci.ids file is not available." \
+    " Ensure that the \"pciids\" package is properly installed or download" \
+    " https://raw.githubusercontent.com/pciutils/pciids/master/pci.ids and" \
+    " copy it to the current directory."
+#else
+#define PCI_IDS_PATH "/usr/share/hwdata/pci.ids"
+#define PCI_IDS_NOT_FOUND "/usr/share/hwdata/pci.ids file is not available." \
+    " Ensure that the \"hwdata\" package is properly installed or download" \
+    " https://raw.githubusercontent.com/pciutils/pciids/master/pci.ids and" \
+    " copy it to the current directory."
+#endif
+
 typedef uint32_t h_id;
 typedef uint32_t v_id;
-typedef map<std::pair<h_id,v_id>,uint64_t> ctr_data;
-typedef vector<ctr_data> stack_content;
-typedef vector<stack_content> result_content;
+typedef std::map<std::pair<h_id,v_id>,uint64_t> ctr_data;
+typedef std::vector<ctr_data> stack_content;
+typedef std::vector<stack_content> result_content;
 
 struct bdf {
     uint8_t busno;
@@ -55,26 +73,26 @@ struct pci {
 };
 
 struct counter {
-    string h_event_name;
-    string v_event_name;
+  std::string h_event_name;
+  std::string v_event_name;
     IIOPMUCNTCTLRegister Opcodes;
     int idx; /* Some counters need to be placed in specific index */
     int multiplier;
     int divider;
     uint32_t h_id;
     uint32_t v_id;
-    vector<result_content> data;
+    std::vector<result_content> data;
 };
 
 struct iio_skx {
     struct {
         struct {
             struct pci root_pci_dev;   /* single device represent root port */
-            vector<struct pci> child_pci_devs; /* Contain child switch and end-point devices */
+            std::vector<struct pci> child_pci_devs; /* Contain child switch and end-point devices */
         } parts[4]; /* part 0, 1, 2, 3 */
         uint8_t busno; /* holding busno for each IIO stack */
-        string stack_name;
-        vector<uint64_t> values;
+        std::string stack_name;
+        std::vector<uint64_t> values;
     } stacks[6]; /* iio stack 0, 1, 2, 3, 4, 5 */
     uint32_t socket_id;
 };
@@ -129,10 +147,15 @@ void probe_pci(struct pci *p)
 {
     uint32 value;
     struct bdf *bdf = &p->bdf;
-    if (PciHandleType::exists(bdf->busno, bdf->devno, bdf->funcno)) {
+    if (PciHandleType::exists(0, bdf->busno, bdf->devno, bdf->funcno)) {
         p->exist = true;
         PciHandleType h(0, bdf->busno, bdf->devno, bdf->funcno);
         h.read32(0x0, &value); //VID:DID
+        if (value == (std::numeric_limits<unsigned int>::max)()) // invalid VID::DID
+        {
+            p->exist = false;
+            return;
+        }
         p->offset_0 = value;
         h.read32(0xc, &value);
         p->header_type = (value >> 16) & 0x7f;
@@ -179,12 +202,20 @@ void print_pci(struct pci p, const PCIDB & pciDB)
 
 void load_PCIDB(PCIDB & pciDB)
 {
-    std::ifstream in("pci.ids");
+    std::ifstream in(PCI_IDS_PATH);
     std::string line, item;
 
     if (!in.is_open())
     {
-        std::cerr << "pci.ids file is not available. Download it from https://raw.githubusercontent.com/pciutils/pciids/master/pci.ids " << endl;
+#ifndef _MSC_VER
+        // On Unix, try the current directory if the default path failed
+        in.open("pci.ids");
+    }
+
+    if (!in.is_open())
+    {
+#endif
+        std::cerr << PCI_IDS_NOT_FOUND << "\n";
         return;
     }
 
@@ -203,7 +234,7 @@ void load_PCIDB(PCIDB & pciDB)
         if (line[0] == '\t')
         {
             int deviceID = stoi(line.substr(1,4),0,16);
-            //std::cout << vendorID << ";" << vendorName << ";" << deviceID << ";"<< line.substr(7) << endl;
+            //std::cout << vendorID << ";" << vendorName << ";" << deviceID << ";" << line.substr(7) << "\n";
             pciDB.second[vendorID][deviceID] = line.substr(7);
             continue;
         }
