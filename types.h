@@ -28,6 +28,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <sstream>
 #include <iomanip>
 
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
+
+namespace pcm {
+
 typedef unsigned long long uint64;
 typedef signed long long int64;
 typedef unsigned int uint32;
@@ -661,6 +667,13 @@ struct BecktonUncorePMUCNTCTLRegister
 #define SKX_QPI_PORT2_REGISTER_DEV_ADDR  (16)
 #define SKX_QPI_PORT2_REGISTER_FUNC_ADDR (0)
 
+#define CPX_QPI_PORT3_REGISTER_DEV_ADDR  (14)
+#define CPX_QPI_PORT3_REGISTER_FUNC_ADDR (4)
+#define CPX_QPI_PORT4_REGISTER_DEV_ADDR  (15)
+#define CPX_QPI_PORT4_REGISTER_FUNC_ADDR (4)
+#define CPX_QPI_PORT5_REGISTER_DEV_ADDR  (16)
+#define CPX_QPI_PORT5_REGISTER_FUNC_ADDR (4)
+
 #define QPI_PORT0_MISC_REGISTER_FUNC_ADDR (0)
 #define QPI_PORT1_MISC_REGISTER_FUNC_ADDR (0)
 #define QPI_PORT2_MISC_REGISTER_FUNC_ADDR (0)
@@ -966,7 +979,6 @@ struct IIOPMUCNTCTLRegister
 #define MSR_TSX_FORCE_ABORT (0x10f)
 
 #ifdef _MSC_VER
-#include <windows.h>
 // data structure for converting two uint32s <-> uin64
 union cvt_ds
 {
@@ -1017,5 +1029,7 @@ struct MCFGHeader
         std::cout << "Header: length=" << length << " nrecords=" << nrecords() << "\n";
     }
 };
+
+} // namespace pcm
 
 #endif

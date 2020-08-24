@@ -21,7 +21,7 @@ PCM provides a number of command-line utilities for real-time monitoring:
 
 - **pcm** : basic processor monitoring utility (instructions per cycle, core frequency (including Intel(r) Turbo Boost Technology), memory and Intel(r) Quick Path Interconnect bandwidth, local and remote memory bandwidth, cache misses, core and CPU package sleep C-state residency, core and CPU package thermal headroom, cache utilization, CPU and memory energy consumption)
 ![pcm output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm.x.jpg)
-- **pcm-sensor-server** : pcm collector exposing metrics over http in JSON or Prometheus (text based) format. Also available as a [docker container](https://github.com/opcm/pcm/blob/master/DOCKER_README.md)
+- **pcm-sensor-server** : pcm collector exposing metrics over http in JSON or Prometheus (exporter text based) format. Also available as a [docker container](https://github.com/opcm/pcm/blob/master/DOCKER_README.md)
 - **pcm-memory** : monitor memory bandwidth (per-channel and per-DRAM DIMM rank)
 ![pcm-memory output](https://raw.githubusercontent.com/wiki/opcm/pcm/pcm-memory.x.JPG)
 - **pcm-latency** : monitor L1 cache miss and DDR/PMM memory latency
@@ -66,6 +66,12 @@ PCM API documentation
 --------------------------------------------------------------------------------
 
 PCM API documentation is embedded in the source code and can be generated into html format from source using Doxygen (www.doxygen.org).
+
+--------------------------------------------------------------------------------
+PCM environment variables
+--------------------------------------------------------------------------------
+
+The list of PCM environment variables is located [here](https://github.com/opcm/pcm/blob/master/ENVVAR_README.md)
 
 --------------------------------------------------------------------------------
 Custom compilation options

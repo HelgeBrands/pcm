@@ -61,21 +61,26 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <unistd.h>
 #endif
 
-class SystemCounterState;
-class SocketCounterState;
-class CoreCounterState;
-class BasicCounterState;
-class ServerUncorePowerState;
-class PCM;
-class CoreTaskQueue;
-class SystemRoot;
-
 #ifdef _MSC_VER
 #if _MSC_VER>= 1600
 #include <intrin.h>
 #endif
+#endif
+
+namespace pcm {
+
+#ifdef _MSC_VER
 void PCM_API restrictDriverAccess(LPCWSTR path);
 #endif
+
+class SystemCounterState;
+class SocketCounterState;
+class CoreCounterState;
+class BasicCounterState;
+class ServerUncoreCounterState;
+class PCM;
+class CoreTaskQueue;
+class SystemRoot;
 
 /*
         CPU performance monitoring routines
@@ -309,7 +314,7 @@ class ServerPCICFGUncore
     std::vector<std::pair<uint32, uint32> > M2MRegisterLocation; // M2MRegisterLocation: (device, function)
     std::vector<std::pair<uint32, uint32> > HARegisterLocation;  // HARegisterLocation: (device, function)
 
-    static PCM_Util::Mutex socket2busMutex;
+    static Mutex socket2busMutex;
     static std::vector<std::pair<uint32, uint32> > socket2iMCbus;
     static std::vector<std::pair<uint32, uint32> > socket2UPIbus;
     static std::vector<std::pair<uint32, uint32> > socket2M2Mbus;
@@ -321,6 +326,7 @@ class ServerPCICFGUncore
     PciHandleType * createIntelPerfMonDevice(uint32 groupnr, int32 bus, uint32 dev, uint32 func, bool checkVendor = false);
     void programIMC(const uint32 * MCCntConfig);
     void programEDC(const uint32 * EDCCntConfig);
+    void programM2M(const uint32 * M2MCntConfig);
     void programM2M();
     void programHA(const uint32 * config);
     void programHA();
@@ -335,7 +341,7 @@ class ServerPCICFGUncore
     void initDirect(uint32 socket_, const PCM * pcm);
     void initPerf(uint32 socket_, const PCM * pcm);
     void initBuses(uint32 socket_, const PCM * pcm);
-    void initRegisterLocations();
+    void initRegisterLocations(const PCM * pcm);
     uint64 getPMUCounter(std::vector<UncorePMU> & pmu, const uint32 id, const uint32 counter);
 
 public:
@@ -500,15 +506,6 @@ typedef std::vector<uint64> eventGroup_t;
 
 class PerfVirtualControlRegister;
 
-#ifndef HACK_TO_REMOVE_DUPLICATE_ERROR
-template class PCM_API std::allocator<TopologyEntry>;
-template class PCM_API std::vector<TopologyEntry>;
-template class PCM_API std::allocator<CounterWidthExtender *>;
-template class PCM_API std::vector<CounterWidthExtender *>;
-template class PCM_API std::allocator<uint32>;
-template class PCM_API std::vector<uint32>;
-template class PCM_API std::allocator<char>;
-#endif
 /*!
         \brief CPU Performance Monitor
 
@@ -523,6 +520,7 @@ class PCM_API PCM
     friend class ServerUncore;
     friend class PerfVirtualControlRegister;
     friend class Aggregator;
+    friend class ServerPCICFGUncore;
     PCM();     // forbidden to call directly because it is a singleton
 
     int32 cpu_family;
@@ -856,7 +854,7 @@ private:
     void readAndAggregatePackageCStateResidencies(std::shared_ptr<SafeMsrHandle> msr, CounterStateType & result);
     void readQPICounters(SystemCounterState & counterState);
     void reportQPISpeed() const;
-    void readCoreCounterConfig();
+    void readCoreCounterConfig(const bool complainAboutMSR = false);
     void readCPUMicrocodeLevel();
 
     uint64 CX_MSR_PMON_CTRY(uint32 Cbo, uint32 Ctr) const;
@@ -875,11 +873,22 @@ private:
 
     bool isCLX() const // Cascade Lake-SP
     {
-        return (PCM::SKX == cpu_model) && (cpu_stepping > 4);
+        return (PCM::SKX == cpu_model) && (cpu_stepping > 4 && cpu_stepping < 8);
+    }
+
+    static bool isCPX(int cpu_model_, int cpu_stepping_) // Cooper Lake
+    {
+        return (PCM::SKX == cpu_model_) && (cpu_stepping_ >= 10);
+    }
+
+    bool isCPX() const
+    {
+        return isCPX(cpu_model, cpu_stepping);
     }
 
     void initUncorePMUsDirect();
     void initUncorePMUsPerf();
+    bool isRDTDisabled() const;
 
 public:
     enum EventPosition
@@ -1037,7 +1046,7 @@ public:
         \param socket socket id
         \return State of power counters in the socket
     */
-    ServerUncorePowerState getServerUncorePowerState(uint32 socket);
+    ServerUncoreCounterState getServerUncoreCounterState(uint32 socket);
 
     /*! \brief Cleanups resources and stops performance counting
 
@@ -1725,6 +1734,7 @@ public:
     {
         return (
             isCLX()
+                    ||  isCPX()
         );
     }
 
@@ -1760,6 +1770,13 @@ public:
             || cpu_model == PCM::BDX
             || cpu_model == PCM::KNL
             );
+    }
+
+    bool isSkxCompatible() const
+    {
+        return (
+            cpu_model == PCM::SKX
+               );
     }
 
     bool hasUPI() const // Intel(r) Ultra Path Interconnect
@@ -2385,13 +2402,13 @@ public:
 
 //! \brief Server uncore power counter state
 //!
-class ServerUncorePowerState : public UncoreCounterState
+class ServerUncoreCounterState : public UncoreCounterState
 {
 public:
     enum {
         maxControllers = 2,
         maxChannels = 8,
-        maxXPILinks = 3,
+        maxXPILinks = 6,
         maxCounters = 4
     };
 private:
@@ -2433,7 +2450,7 @@ private:
 public:
     //! Returns current thermal headroom below TjMax
     int32 getPackageThermalHeadroom() const { return PackageThermalHeadroom; }
-    ServerUncorePowerState() :
+    ServerUncoreCounterState() :
         QPIClocks{}, QPIL0pTxCycles{}, QPIL1Cycles{},
         DRAMClocks{},
         MCDRAMClocks{},
@@ -3451,5 +3468,7 @@ inline double getLLCReadMissLatency(const CounterStateType & before, const Count
     const double seconds = double(getInvariantTSC(before, after)) / double(m->getNumCores()/m->getNumSockets()) / double(m->getNominalFrequency());
     return 1e9*seconds*(occupancy/inserts)/unc_clocks;
 }
+
+} // namespace pcm
 
 #endif
